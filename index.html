@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Universal Speech-to-Text Pad</title>
+
+<style>
+
+    
+    body {
+        font-family: "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+        padding: 20px;
+        min-height: 100vh;
+    }
+
+    h2 {
+        text-align: center;
+        color: white;
+        text-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    
+    .container {
+        max-width: 800px;
+        margin: auto;
+        background: rgba(255, 255, 255, 0.75);
+        padding: 20px;
+        border-radius: 15px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        border: 1px solid rgba(255,255,255,0.4);
+    }
+
+    select, button, textarea {
+        width: 100%;
+        padding: 12px;
+        margin-top: 10px;
+        border-radius: 10px;
+        border: 1px solid #aaa;
+        font-size: 16px;
+    }
+
+    button {
+        cursor: pointer;
+        background: #007bff;
+        color: white;
+        border: none;
+    }
+
+    button.stop {
+        background: #dc3545;
+    }
+
+    #notes .note {
+        background: rgba(236, 245, 255, 0.95);
+        padding: 8px; 
+        border-radius: 10px;
+        margin-top: 10px;
+        border-left: 4px solid #007bff;
+        white-space: pre-wrap;
+        position: relative;
+        font-size: 15px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    
+    .deleteIcon {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        fill: #dc3545;
+        transition: 0.2s;
+    }
+
+    .deleteIcon:hover {
+        fill: white;
+        background: #dc3545;
+        border-radius: 4px;
+        padding: 2px;
+    }
+
+    .mic-indicator {
+        margin-top: 10px;
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: #aaa;
+        display: inline-block;
+    }
+
+    .mic-active {
+        background: red !important;
+        box-shadow: 0 0 10px red;
+    }
+
+</style>
+</head>
+
+<body>
+
+<h2>🎤 Universal Speech-to-Text Pad</h2>
+
+<div class="container">
+
+    <h3>Select Language</h3>
+    <select id="languageSelect">
+        <option value="en-US">English</option>
+
+        <option value="hi-IN">Hindi</option>
+        <option value="te-IN">Telugu</option>
+        <option value="ta-IN">Tamil</option>
+        <option value="kn-IN">Kannada</option>
+        <option value="ml-IN">Malayalam</option>
+        <option value="mr-IN">Marathi</option>
+        <option value="gu-IN">Gujarati</option>
+        <option value="bn-IN">Bengali</option>
+        <option value="ur-IN">Urdu</option>
+        <option value="pa-IN">Punjabi</option>
+
+        <option value="es-ES">Spanish</option>
+        <option value="fr-FR">French</option>
+        <option value="de-DE">German</option>
+    </select>
+
+    <button id="startBtn">Start Listening</button>
+    <button id="stopBtn" class="stop">Stop Listening</button>
+
+    <div>
+        <span class="mic-indicator" id="mic"></span> 
+        <span id="micStatus">Mic OFF</span>
+    </div>
+
+    <textarea id="textBox" rows="7" placeholder="Your speech will appear here..."></textarea>
+
+    <button id="saveBtn">Save Note</button>
+
+    <h3>Saved Notes</h3>
+    <div id="notes"></div>
+
+</div>
+
+<script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        alert("❌ Your browser does not support Speech Recognition.\nTry using Chrome.");
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    let isListening = false;
+    let finalTranscript = "";
+
+    let textBox = document.getElementById('textBox');
+    let mic = document.getElementById('mic');
+    let micStatus = document.getElementById('micStatus');
+    let notesContainer = document.getElementById('notes');
+
+    function loadNotes() {
+        notesContainer.innerHTML = "";
+        let savedNotes = JSON.parse(localStorage.getItem("speechNotes")) || [];
+        savedNotes.forEach((noteText, index) => addNoteToUI(noteText, index));
+    }
+
+    function addNoteToUI(text, index) {
+        let div = document.createElement('div');
+        div.className = "note";
+
+        div.innerHTML = `
+            <svg class="deleteIcon" data-id="${index}" viewBox="0 0 24 24">
+                <path d="M3 6h18v2H3V6zm2 3h14l-1.5 12.5a2 2 0 0 1-2 1.5H8.5a2 2 0 0 1-2-1.5L5 9zm5 2v8h2v-8H8zm4 0v8h2v-8h-2zM9 4V2h6v2h5v2H4V4h5z"/>
+            </svg>
+            <div class="content">${text}</div>
+        `;
+
+        notesContainer.appendChild(div);
+    }
+
+    notesContainer.addEventListener("click", (e) => {
+        if (e.target.closest(".deleteIcon")) {
+            let index = e.target.closest(".deleteIcon").getAttribute("data-id");
+            let savedNotes = JSON.parse(localStorage.getItem("speechNotes")) || [];
+
+            savedNotes.splice(index, 1);
+            localStorage.setItem("speechNotes", JSON.stringify(savedNotes));
+
+            loadNotes();
+        }
+    });
+
+    recognition.onresult = (event) => {
+        let interim = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            let text = event.results[i][0].transcript;
+            if (event.results[i].isFinal) finalTranscript += text + " ";
+            else interim += text;
+        }
+
+        textBox.value = finalTranscript + interim;
+    };
+
+    recognition.onend = () => {
+        if (isListening) recognition.start();
+    };
+
+    document.getElementById('startBtn').onclick = () => {
+        recognition.lang = document.getElementById('languageSelect').value;
+        isListening = true;
+        finalTranscript = textBox.value;
+        recognition.start();
+        mic.classList.add("mic-active");
+        micStatus.innerText = "Listening...";
+    };
+
+    document.getElementById('stopBtn').onclick = () => {
+        isListening = false;
+        recognition.stop();
+        mic.classList.remove("mic-active");
+        micStatus.innerText = "Mic OFF";
+    };
+
+    document.getElementById('saveBtn').onclick = () => {
+        if (textBox.value.trim() === "") return;
+
+        let savedNotes = JSON.parse(localStorage.getItem("speechNotes")) || [];
+        savedNotes.push(textBox.value);
+        localStorage.setItem("speechNotes", JSON.stringify(savedNotes));
+
+        textBox.value = "";
+        finalTranscript = "";
+        loadNotes();
+    };
+
+    window.onload = loadNotes;
+</script>
+
+</body>
+</html>
