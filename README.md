@@ -17,8 +17,3 @@ A responsive, lightweight web application that converts real-time voice input in
 * **CSS3:** Custom styles, CSS backdrop blur, glassmorphism UI layout, and responsive flex containers.
 * **JavaScript (ES6):** Logic handling, event listeners, local storage integration, and Web Speech API usage.
 
-## 🚀 How to Run Locally
-
-1. Clone or download this repository:
-   ```bash
-   git clone [https://github.com/harishgundala0507/-Speech-to-text.git](https://github.com/harishgundala0507/-Speech-to-text.git)
